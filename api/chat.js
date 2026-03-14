@@ -1,4 +1,5 @@
 export default async function handler(req, res) {
+  // CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -6,8 +7,22 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   const { messages, systemPrompt } = req.body;
+  
+  // Validações melhoradas
   if (!messages || !Array.isArray(messages)) {
     return res.status(400).json({ error: 'Invalid request body' });
+  }
+  
+  if (messages.length === 0) {
+    return res.status(400).json({ error: 'Messages array cannot be empty' });
+  }
+  
+  if (!messages.every(msg => msg.role && msg.content)) {
+    return res.status(400).json({ error: 'Invalid message format' });
+  }
+  
+  if (systemPrompt && typeof systemPrompt !== 'string') {
+    return res.status(400).json({ error: 'systemPrompt must be a string' });
   }
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -22,7 +37,7 @@ export default async function handler(req, res) {
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-3-5-sonnet-20241022', // ✅ Versão corrigida
         max_tokens: 1024,
         system: systemPrompt || 'Você é NEXUS AI, assistente especialista em trading e análise técnica. Responda em português, de forma técnica, concisa e útil.',
         messages,
@@ -39,7 +54,7 @@ export default async function handler(req, res) {
     return res.status(200).json({ response: text });
 
   } catch (err) {
-    console.error('Handler error:', err);
+    console.error('Handler error:', err.message, err.stack);
     return res.status(500).json({ error: 'Internal server error' });
   }
 }
